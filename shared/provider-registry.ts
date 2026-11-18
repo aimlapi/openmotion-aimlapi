@@ -17,6 +17,7 @@ const media = {
   'minimax-speech-cn': { label: 'MiniMax Speech · China mainland', group: 'MiniMax Speech', region: 'China mainland', baseUrl: 'https://api.minimax.cn', website: 'https://platform.minimax.cn', keyEnvironment: 'MINIMAX_SPEECH_CN_API_KEY', kinds: ['audio'] as ProviderDefinition['kinds'], reference: 'minimax' },
   'minimax-speech': { label: 'MiniMax Speech · International', group: 'MiniMax Speech', region: 'International', baseUrl: 'https://api.minimax.io', website: 'https://platform.minimax.io', keyEnvironment: 'MINIMAX_SPEECH_API_KEY', kinds: ['audio'] as ProviderDefinition['kinds'], reference: 'minimax' },
   wavespeed: { label: 'WaveSpeedAI', baseUrl: 'https://api.wavespeed.ai', website: 'https://wavespeed.ai/accesskey', keyEnvironment: 'WAVESPEED_API_KEY' },
+  aimlapi: { label: 'AI/ML API', baseUrl: 'https://api.aimlapi.com', website: 'https://aimlapi.com/app/keys', keyEnvironment: 'AIMLAPI_API_KEY' },
 };
 export type MediaProviderId = keyof typeof media;
 export const mediaProviders = Object.keys(media) as MediaProviderId[];
