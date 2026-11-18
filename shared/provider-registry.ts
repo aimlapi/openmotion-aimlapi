@@ -10,6 +10,7 @@ export type ProviderRegistration = ProviderDefinition & {
 };
 
 const media = {
+  aimlapi: { label: 'AI/ML API', baseUrl: 'https://api.aimlapi.com', website: 'https://aimlapi.com/app/keys', keyEnvironment: 'AIMLAPI_API_KEY' },
   atlascloud: { label: 'Atlas Cloud', baseUrl: 'https://api.atlascloud.ai', website: 'https://www.atlascloud.ai/console/api-keys', keyEnvironment: 'ATLASCLOUD_API_KEY' },
   fal: { label: 'fal.ai', baseUrl: 'https://queue.fal.run', catalogueBaseUrl: 'https://api.fal.ai', website: 'https://fal.ai/dashboard/keys', keyEnvironment: 'FAL_KEY' },
   opendesign: { label: 'OpenDesign Cloud', baseUrl: '', website: 'https://open-design.ai/cloud/dashboard', keyEnvironment: 'OPENDESIGN_API_KEY', originEnvironment: 'OPENDESIGN_MEDIA_ORIGIN', baseUrlEditable: true },
@@ -17,7 +18,6 @@ const media = {
   'minimax-speech-cn': { label: 'MiniMax Speech · China mainland', group: 'MiniMax Speech', region: 'China mainland', baseUrl: 'https://api.minimax.cn', website: 'https://platform.minimax.cn', keyEnvironment: 'MINIMAX_SPEECH_CN_API_KEY', kinds: ['audio'] as ProviderDefinition['kinds'], reference: 'minimax' },
   'minimax-speech': { label: 'MiniMax Speech · International', group: 'MiniMax Speech', region: 'International', baseUrl: 'https://api.minimax.io', website: 'https://platform.minimax.io', keyEnvironment: 'MINIMAX_SPEECH_API_KEY', kinds: ['audio'] as ProviderDefinition['kinds'], reference: 'minimax' },
   wavespeed: { label: 'WaveSpeedAI', baseUrl: 'https://api.wavespeed.ai', website: 'https://wavespeed.ai/accesskey', keyEnvironment: 'WAVESPEED_API_KEY' },
-  aimlapi: { label: 'AI/ML API', baseUrl: 'https://api.aimlapi.com', website: 'https://aimlapi.com/app/keys', keyEnvironment: 'AIMLAPI_API_KEY' },
 };
 export type MediaProviderId = keyof typeof media;
 export const mediaProviders = Object.keys(media) as MediaProviderId[];
