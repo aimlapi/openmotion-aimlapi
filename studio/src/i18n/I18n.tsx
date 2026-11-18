@@ -1,13 +1,28 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { isLocale, translate, type Locale, type MessageValues } from './messages';
+import { isLocale, languages, translate, type Locale, type MessageValues } from './messages';
 import { pageMetadata } from '../../../packages/design-system/metadata.js';
 export { languages, isLocale, translate, sourceMessage } from './messages';
 export type { Locale, MessageValues, Translate } from './messages';
 export const LOCALE_STORAGE_KEY = 'motion.studio.locale';
 
+function browserLocale(): Locale | undefined {
+  if (typeof navigator === 'undefined') return undefined;
+  const preferred = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const value of preferred) {
+    if (!value) continue;
+    const normalized = value.replaceAll('_', '-').toLowerCase();
+    const exact = languages.find(language => language.locale.toLowerCase() === normalized);
+    if (exact) return exact.locale;
+    const primary = normalized.split('-')[0];
+    const match = languages.find(language => language.locale.toLowerCase().split('-')[0] === primary);
+    if (match) return match.locale;
+  }
+  return undefined;
+}
+
 export function readLocale(): Locale {
   try { const saved = localStorage.getItem(LOCALE_STORAGE_KEY); if (isLocale(saved)) return saved; } catch { /* Private browsing can deny storage. */ }
-  return 'zh-CN';
+  return browserLocale() ?? 'zh-CN';
 }
 
 function languageTools(locale: Locale) {
@@ -47,7 +62,7 @@ export function I18nProvider({ children, initialLocale }: { children: ReactNode;
     }
     const onStorage = (event: StorageEvent) => {
       if (event.storageArea && event.storageArea !== localStorage) return;
-      if (event.key === LOCALE_STORAGE_KEY || event.key === null) updateLocale(isLocale(event.newValue) ? event.newValue : 'zh-CN');
+      if (event.key === LOCALE_STORAGE_KEY || event.key === null) updateLocale(isLocale(event.newValue) ? event.newValue : browserLocale() ?? 'zh-CN');
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);

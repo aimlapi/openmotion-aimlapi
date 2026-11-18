@@ -23,7 +23,7 @@ import { proxyStudio, renderDownloadDisposition, serveEditorFile } from './edito
 import { publicTools as mcpTools } from './mcp.ts';
 import { startOwnedStudio } from './shared/owned-studio.mjs';
 import { sharedEditorEnabled, ensureEditor, editorRequest } from './editor-runtime.ts';
-import { agentGuide, integrationConfig, integrationHost, type IntegrationInfo } from './shared/integration.ts';
+import { agentGuide, containerIntegration, integrationConfig, integrationHost, type IntegrationInfo } from './shared/integration.ts';
 import { validateInstruction } from './shared/conversation.ts';
 import { creationMode, creationModes, artifactViewers, availableSession, type CreativeSession, type CreationMode } from './shared/session.ts';
 import { gatewayFor } from './gateway/service.ts';
@@ -485,14 +485,14 @@ export async function handler(req: IncomingMessage, res: ServerResponse, store =
     }
     if (req.method === 'GET' && ['/api/integration', '/connect/guide', '/connect/config'].includes(url.pathname)) {
       const address = new URL(editorUrl);
-      const info: IntegrationInfo = {
+      const info: IntegrationInfo = containerIntegration({
         templateSource: templateCatalogFor(store.directory).source,
         templateEnvironment: templateCatalogFor(store.directory).environment as 'dev' | 'prod',
         name: 'OpenMotion', version: VERSION, previewUrl: address.origin, dataDirectory: store.directory,
         transport: { type: 'stdio', command: process.execPath, args: ['--experimental-strip-types', path.join(pluginRoot, 'mcp.ts')], cwd: pluginRoot,
           env: { MOTION_DATA_DIR: store.directory, PORT: address.port || '80', MOTION_TEMPLATE_SOURCE: templateCatalogFor(store.directory).source, ...Object.fromEntries(['MOTION_TEMPLATE_ENV', 'MOTION_TEMPLATE_RESOURCE_ID', 'MOTION_TEMPLATE_LOCALE', 'MOTION_BROWSER_PATH', 'HYPERFRAMES_BROWSER_PATH', 'HYPERFRAMES_FFMPEG_PATH', 'HYPERFRAMES_FFPROBE_PATH', 'FFMPEG_PATH', 'FFPROBE_PATH'].filter(key => process.env[key]).map(key => [key, process.env[key]!])) } },
         tools: mcpTools.map(({ name, description }) => ({ name, description })),
-      };
+      }, process.env.MOTION_CONTAINER_NAME);
       if (url.pathname === '/api/integration') return json(res, 200, info);
       const selected = integrationHost(url.searchParams.get('host'));
       if (url.pathname === '/connect/guide') {
@@ -757,7 +757,24 @@ export async function handler(req: IncomingMessage, res: ServerResponse, store =
   }
 }
 
+// The server listens on loopback unless MOTION_BIND_HOST selects a wildcard address. A container sets
+// 0.0.0.0 so its port can be published. Specific addresses are rejected: the readiness probe and the
+// URLs handed to Agents use 127.0.0.1, which only loopback and wildcard listeners answer.
+const bindHosts = ['127.0.0.1', '0.0.0.0', '::'];
+export function bindHost(environment: NodeJS.ProcessEnv = process.env) {
+  const value = environment.MOTION_BIND_HOST?.trim();
+  if (!value) {
+    return '127.0.0.1';
+  }
+  if (!bindHosts.includes(value)) {
+    throw new Error('MOTION_BIND_HOST 只支持 127.0.0.1、0.0.0.0 或 ::');
+  }
+  return value;
+}
+
 export async function startServer(store = sharedStore, port = Number(process.env.PORT || 4173), options: { editor?: boolean; fallbackIfPortBusy?: boolean; editorToken?: string; privateHandler?: (req: IncomingMessage, res: ServerResponse) => Promise<boolean> } = { editor: process.env.MOTION_HEADLESS !== '1' }) {
+  // Resolve the address before any child process starts, so an invalid value leaves no editor running.
+  const host = bindHost();
   await access(path.join(pluginRoot, 'studio/build/index.html')).catch(() => { throw new Error('编辑器尚未构建，请先运行 npm run build:studio。'); });
   const runtimeRoot = await ensureRuntime(store.directory, false);
   await configureNativeEnvironment(pluginRoot);
@@ -797,7 +814,7 @@ export async function startServer(store = sharedStore, port = Number(process.env
   try {
     const listen = (target: number) => new Promise<void>((resolve, reject) => {
       server.once('error', reject);
-      server.listen(target, '127.0.0.1', () => { server.off('error', reject); resolve(); });
+      server.listen(target, host, () => { server.off('error', reject); resolve(); });
     });
     try { await listen(port); }
     catch (error) {

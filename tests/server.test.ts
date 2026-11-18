@@ -69,3 +69,40 @@ test('wrapper rejects cross-origin mutations and DNS rebinding hosts', () => fix
     await handler(req as unknown as IncomingMessage, res as unknown as ServerResponse, store); assert.equal(status, 403);
   }
 }));
+
+test('the listening address is loopback or a wildcard, never a specific interface', async () => {
+  const { bindHost } = await import('../server.ts');
+  assert.equal(bindHost({}), '127.0.0.1');
+  assert.equal(bindHost({ MOTION_BIND_HOST: '  ' }), '127.0.0.1');
+  assert.equal(bindHost({ MOTION_BIND_HOST: '127.0.0.1' }), '127.0.0.1');
+  assert.equal(bindHost({ MOTION_BIND_HOST: '0.0.0.0' }), '0.0.0.0');
+  assert.equal(bindHost({ MOTION_BIND_HOST: '::' }), '::');
+  // The readiness probe and returned URLs use 127.0.0.1, so these would start a server nothing can reach.
+  for (const value of ['192.168.1.20', '::1', 'example.com']) {
+    assert.throws(() => bindHost({ MOTION_BIND_HOST: value }), /MOTION_BIND_HOST/);
+  }
+});
+
+test('container connection instructions launch Docker on the host, preserving the workspace inside', () => fixture(async store => {
+  const previous = process.env.MOTION_CONTAINER_NAME;
+  process.env.MOTION_CONTAINER_NAME = 'openmotion';
+  try {
+    const request = transport(store);
+    const info = await (await request('/api/integration')).json();
+    assert.equal(info.transport.command, 'docker');
+    assert.equal(info.transport.cwd, undefined);
+    assert.deepEqual(info.transport.env, {});
+    assert.deepEqual(info.transport.args.slice(0, 3), ['exec', '-i', '--workdir']);
+    assert.ok(info.transport.args.includes('MOTION_DATA_DIR=' + store.directory));
+    assert.ok(info.transport.args.includes('openmotion'));
+    for (const host of ['codex', 'claude', 'deepseek', 'mcp']) {
+      const config = await (await request('/connect/config?host=' + host)).text();
+      assert.match(config, /docker/);
+      const guide = await (await request('/connect/guide?host=' + host)).text();
+      assert.match(guide, /container paths/);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.MOTION_CONTAINER_NAME;
+    else process.env.MOTION_CONTAINER_NAME = previous;
+  }
+}));

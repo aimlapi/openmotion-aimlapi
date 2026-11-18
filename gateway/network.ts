@@ -30,13 +30,34 @@ export async function retryRead<T>(read: () => Promise<T>, signal: AbortSignal, 
   }
 }
 export async function apiJson(fetcher: Fetcher, url: string, init: RequestInit = {}, limits: { timeoutMs?: number; maxBytes?: number } = {}) {
-  const response = await fetcher(url, { ...init, redirect: 'error', signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(limits.timeoutMs ?? 30_000)]) : AbortSignal.timeout(limits.timeoutMs ?? 15_000) });
+  const maxBytes = limits.maxBytes ?? MAX_JSON_BYTES;
+  // The production transport buffers before resolving, so enforce the same cap there.
+  const bounded: Fetcher = fetcher === publicProviderFetch
+    ? (input, requestInit) => publicProviderFetch(input, requestInit ?? {}, 60_000, maxBytes)
+    : fetcher;
+  const response = await bounded(url, { ...init, redirect: 'error', signal: init.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(limits.timeoutMs ?? 30_000)]) : AbortSignal.timeout(limits.timeoutMs ?? 15_000) });
   // Do not forward provider response text: it may echo a key or user input.
   if (!response.ok) throw new ProviderError(`Provider HTTP ${response.status}${response.status === 401 || response.status === 403 ? ': credentials or permissions rejected' : ''}`, response.status);
-  const body = await response.text();
-  const maxBytes = limits.maxBytes ?? 16 * 1024 * 1024;
-  if (Buffer.byteLength(body) > maxBytes) throw new Error(`Provider response exceeds ${maxBytes / 1024 / 1024} MB`);
+  const body = await readCappedText(response, maxBytes);
   try { return JSON.parse(body); } catch { throw new Error('Provider returned invalid JSON'); }
+}
+// Stop reading as soon as the peer exceeds the cap instead of buffering the whole body first.
+export async function readCappedText(response: Response, maximum: number): Promise<string> {
+  if (!response.body) return '';
+  const reader = response.body.getReader(), chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      size += value.byteLength;
+      if (size > maximum) throw new Error(`Provider response exceeds ${maximum / 1024 / 1024} MB`);
+      chunks.push(value);
+    }
+  } finally { await reader.cancel().catch(() => {}); }
+  // TextDecoder strips a leading BOM, which Buffer#toString kept and which made valid JSON fail.
+  return new TextDecoder().decode(Buffer.concat(chunks));
 }
 export function isPublicAddress(address: string) {
   if (isIP(address) === 4) {
@@ -69,7 +90,7 @@ export function providerOrigin(raw: unknown): string {
   return url.origin;
 }
 /** Custom Cloud origins use pinned public DNS and never forward credentials on redirects. */
-export async function publicProviderFetch(raw: Parameters<Fetcher>[0], init: RequestInit = {}, idleTimeoutMs = 60_000): Promise<Response> {
+export async function publicProviderFetch(raw: Parameters<Fetcher>[0], init: RequestInit = {}, idleTimeoutMs = 60_000, maxBytes = MAX_MEDIA_BYTES): Promise<Response> {
   const url = new URL(String(raw)); providerOrigin(url.origin);
   const addresses = await lookup(url.hostname, { all: true });
   if (!addresses.length || addresses.some(item => !isPublicAddress(item.address))) throw new Error('Provider points to a non-public address');
@@ -80,7 +101,7 @@ export async function publicProviderFetch(raw: Parameters<Fetcher>[0], init: Req
         else done(null, addresses[0].address, addresses[0].family);
       } }, res => {
       const chunks: Buffer[] = []; let size = 0;
-      res.on('data', (chunk: Buffer) => { size += chunk.length; if (size > MAX_MEDIA_BYTES) res.destroy(new Error('Provider response exceeds 256 MB')); else chunks.push(chunk); });
+      res.on('data', (chunk: Buffer) => { size += chunk.length; if (size > maxBytes) res.destroy(new Error(`Provider response exceeds ${maxBytes / 1024 / 1024} MB`)); else chunks.push(chunk); });
       res.on('error', reject);
       res.on('end', () => {
         const status = res.statusCode ?? 502;
@@ -93,6 +114,8 @@ export async function publicProviderFetch(raw: Parameters<Fetcher>[0], init: Req
   });
 }
 export const MAX_MEDIA_BYTES = 256 * 1024 * 1024;
+/** JSON responses are far smaller than media, and the cap has to apply before the body is buffered. */
+export const MAX_JSON_BYTES = 16 * 1024 * 1024;
 /** Download without credentials; pin validated DNS answers to prevent rebinding. */
 export async function downloadMedia(raw: string, signal: AbortSignal, redirects = 0): Promise<Buffer> {
   if (raw.startsWith('data:')) {

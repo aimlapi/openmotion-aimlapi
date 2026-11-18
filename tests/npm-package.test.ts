@@ -248,7 +248,7 @@ test('test npm artifacts contain their application, locked manifest and no bundl
     const entries = await runFile('tar', ['-tf', built.application]);
     assert(!/\/(node_modules|runtime)\//.test(entries));
     assert(entries.includes('skills/openmotion-production/SKILL.md'));
-    for (const file of ['shared/provider-registry.ts', 'gateway/connections.ts', 'gateway/media-use.ts', 'gateway/opendesign.ts', 'gateway/speech-providers.ts', 'gateway/voice-library.ts', 'shared/voice-library.ts', 'skills/openmotion-media/references/providers/fishaudio.md', 'skills/openmotion-media/references/providers/minimax-speech.md', 'skills/openmotion-media/references/providers/fal.md', 'skills/openmotion-media/references/providers/opendesign.md', 'skills/openmotion-media/references/providers/atlascloud.md', 'skills/openmotion-media/references/providers/wavespeed.md']) assert(entries.includes(file), 'BYOK runtime and guidance must ship: ' + file);
+    for (const file of ['shared/provider-registry.ts', 'gateway/connections.ts', 'gateway/media-use.ts', 'gateway/opendesign.ts', 'skills/openmotion-media/references/providers/fal.md', 'skills/openmotion-media/references/providers/opendesign.md', 'skills/openmotion-media/references/providers/atlascloud.md', 'skills/openmotion-media/references/providers/wavespeed.md']) assert(entries.includes(file), 'BYOK runtime and guidance must ship: ' + file);
     assert(!entries.includes('skills/openmotion-debug-media/'), 'Removed debugging Skill must not ship');
     const entryNames = entries.trim().split('\n').map(file => file.replace(/^\.\//, ''));
     for (const file of unapproved) assert(!entryNames.includes(file), 'Unapproved file shipped: ' + file);

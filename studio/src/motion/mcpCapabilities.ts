@@ -1,4 +1,3 @@
-import { voicePrompt } from '../../../shared/voice-library.ts';
 import { assetNamingInstruction } from '../../../shared/asset-names.ts';
 import { defaultPlatformExportTarget, platformExportPrompt } from '../../../shared/platform-export.ts';
 import type { IntegrationInfo } from '../../../shared/integration.ts';
@@ -20,12 +19,12 @@ export const mcpCapabilities = [
 ] as const;
 
 /** Scenarios compose existing tools; keep atomic tool discovery unique above. */
-export const mcpScenarios = [
-  { id: 'voices', icon: 'voiceprint-line', title: 'Voices', description: 'Save voices from your accounts. Generate narration as audio, then use it in your video.', tools: ['openmotion_assets_use', 'openmotion_media_use'], prompt: voicePrompt },
-  { id: 'asset-naming', icon: 'folder-open-line', title: 'Name project assets',
-    description: 'Start with a saved project. Preserve readable names; name missing or new assets in the project’s naming language. Names change without moving files. If a save conflicts, reread the project before retrying.',
-    tools: ['openmotion_get_project', 'openmotion_edit_project'], prompt: assetNamingInstruction,
-  }, {
+export const mcpScenarios = [{
+  id: 'asset-naming', icon: 'folder-open-line', title: 'Name project assets',
+  description: 'Start with a saved project. Preserve readable names; name missing or new assets in the project’s naming language. Names change without moving files. If a save conflicts, reread the project before retrying.',
+  tools: ['openmotion_get_project', 'openmotion_edit_project'],
+  prompt: assetNamingInstruction,
+}, {
   id: 'platform-export', icon: 'sparkling-line', title: 'Prepare a platform version',
   description: 'In Export → Platform export, choose a platform and goal. Defaults preserve the full video and captions; expand Customize version for language, canvas and duration. Copy the brief to your Agent to create editable versions and export MP4.',
   tools: ['openmotion_get_project', 'openmotion_manage_project', 'openmotion_edit_project', 'openmotion_open_preview', 'openmotion_export_request'],

@@ -1,12 +1,47 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { setupPrompt, setupGuideUrl, templatePrompt, type IntegrationInfo } from '../shared/integration.ts';
+import { containerIntegration, integrationConfig, isIntegrationInfo, manualConnection, setupPrompt, setupGuideUrl, templatePrompt, type IntegrationInfo } from '../shared/integration.ts';
+import { validateTransport } from '../scripts/check-installed-mcp.mjs';
 
 const info: IntegrationInfo = {
   name: 'OpenMotion', version: '1.0.0', templateSource: 'repository',
   previewUrl: 'http://127.0.0.1:49937', dataDirectory: '/private/project-data', tools: [],
   transport: { type: 'stdio', command: '/private/node', args: ['/private/mcp.ts'], cwd: '/private', env: { MOTION_DATA_DIR: '/private/project-data' } },
 };
+
+test('container setup preserves its workspace without launching container-internal paths on the host', () => {
+  assert.equal(containerIntegration(info), info);
+  const docker = containerIntegration(info, 'openmotion');
+  assert.equal(isIntegrationInfo(info), true);
+  assert.equal(isIntegrationInfo(docker), true);
+  assert.equal(isIntegrationInfo({ ...docker, deployment: undefined }), false);
+  assert.equal(isIntegrationInfo({ ...docker, transport: { ...docker.transport, command: 'node' } }), false);
+  assert.doesNotThrow(() => validateTransport({ transport: docker.transport }));
+  assert.equal(docker.transport.cwd, undefined);
+  assert.equal(setupGuideUrl(docker), 'https://github.com/nexu-io/openmotion/blob/main/deploy/README.md');
+  for (const host of ['codex', 'claude', 'deepseek', 'mcp'] as const) {
+    assert.match(manualConnection(docker, host), /docker/);
+    assert.match(integrationConfig(docker, host).text, /docker/);
+    assert.doesNotMatch(integrationConfig(docker, host).text, /cwd =|cwd:|undefined/);
+    for (const locale of ['en', 'zh-CN'] as const) {
+      const prompt = setupPrompt(docker, host, locale);
+      assert.match(prompt, /deploy\/README.md/);
+      assert.match(prompt, /connect\/config/);
+      assert.match(prompt, /skills\/openmotion\/SKILL.md/);
+      assert.match(prompt, /openmotion#quick-start/);
+      assert.doesNotMatch(prompt, /blob\/main\/install.md/);
+    }
+    if (host === 'codex') {
+      assert.match(setupPrompt(docker, host, 'en'), /same turn.*welcome and video cards.*template library/);
+      assert.match(setupPrompt(docker, host, 'zh-CN'), /在本轮完成引导.*欢迎语和视频卡片.*模板库/);
+    } else {
+      assert.match(setupPrompt(docker, host, 'en'), /Once connected, open the template library/);
+      assert.match(setupPrompt(docker, host, 'zh-CN'), /接入后打开模板库/);
+    }
+  }
+  assert.deepEqual(docker.transport.args, ['exec', '-i', '--workdir', '/private', '--env', 'MOTION_DATA_DIR=/private/project-data', 'openmotion', '/private/node', '/private/mcp.ts']);
+  assert.throws(() => containerIntegration(info, '--privileged'), /Invalid MOTION_CONTAINER_NAME/);
+});
 
 test('setup works before local discovery and never copies machine-local details', () => {
   for (const locale of ['en', 'zh-CN'] as const) {

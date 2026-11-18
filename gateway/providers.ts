@@ -1,4 +1,3 @@
-import { fishAudio, miniMaxSpeech } from './speech-providers.ts';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { GenerationJob, Model } from '../shared/gateway.ts';
 import { apiJson, ProviderError, type Fetcher } from './network.ts';
@@ -119,4 +118,4 @@ const fal: ProviderAdapter = {
   },
 };
 /** Add providers here without changing Studio, job persistence or the MCP contract. */
-export const providerAdapters: Record<MediaProviderId, ProviderAdapter> = { atlascloud: atlas, fal, opendesign, wavespeed, fishaudio: fishAudio, 'minimax-speech': miniMaxSpeech, 'minimax-speech-cn': miniMaxSpeech, aimlapi };
+export const providerAdapters: Record<MediaProviderId, ProviderAdapter> = { atlascloud: atlas, fal, opendesign, wavespeed, aimlapi };

@@ -23,6 +23,8 @@ let root: Root;
 let host: HTMLDivElement;
 beforeEach(() => {
   localStorage.clear();
+  vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['unsupported']);
+  vi.spyOn(navigator, 'language', 'get').mockReturnValue('unsupported');
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
 });
 afterEach(() => { act(() => root.unmount()); host.remove(); vi.restoreAllMocks(); });
@@ -111,6 +113,62 @@ it('restores and synchronizes every supported preference without replacing edito
   act(() => window.dispatchEvent(new StorageEvent('storage', { key: LOCALE_STORAGE_KEY, newValue: 'ja' })));
   act(() => window.dispatchEvent(new StorageEvent('storage', { key: null })));
   expect(document.documentElement.lang).toBe('zh-CN');
+});
+
+it.each([
+  { preferred: ['en'], expected: 'en' },
+  { preferred: ['pt-BR'], expected: 'pt-BR' },
+  { preferred: ['PT_br'], expected: 'pt-BR' },
+  { preferred: ['en-US'], expected: 'en' },
+  { preferred: ['de-AT'], expected: 'de' },
+  { preferred: ['pt-PT'], expected: 'pt-BR' },
+  { preferred: ['unsupported', 'fr-CA', 'en'], expected: 'fr' },
+  { preferred: ['es-MX', 'en'], expected: 'es' },
+  { preferred: ['unsupported'], expected: 'zh-CN' },
+])('uses browser preferences $preferred as $expected on first run', ({ preferred, expected }) => {
+  vi.spyOn(navigator, 'languages', 'get').mockReturnValue(preferred);
+  expect(readLocale()).toBe(expected);
+});
+
+it('uses navigator.language when the preferred-language list is empty', () => {
+  vi.spyOn(navigator, 'languages', 'get').mockReturnValue([]);
+  vi.spyOn(navigator, 'language', 'get').mockReturnValue('ja-JP');
+  expect(readLocale()).toBe('ja');
+});
+
+it('keeps a saved preference ahead of the browser language', () => {
+  vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en-US']);
+  localStorage.setItem(LOCALE_STORAGE_KEY, 'pt-BR');
+  expect(readLocale()).toBe('pt-BR');
+});
+
+it('uses browser preferences for invalid or inaccessible stored values without persisting detection', () => {
+  vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['de-AT']);
+  localStorage.setItem(LOCALE_STORAGE_KEY, 'invalid');
+  expect(readLocale()).toBe('de');
+  const persist = vi.spyOn(Storage.prototype, 'setItem');
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied'); });
+  expect(readLocale()).toBe('de');
+  act(() => root.render(<I18nProvider><EditorState /></I18nProvider>));
+  expect(document.documentElement.lang).toBe('de');
+  expect(host.querySelector('h1')?.textContent).toBe(translate('de', 'Preview'));
+  expect(persist).not.toHaveBeenCalled();
+});
+
+it.each([
+  { key: LOCALE_STORAGE_KEY, newValue: null },
+  { key: LOCALE_STORAGE_KEY, newValue: 'invalid' },
+  { key: null, newValue: null },
+])('returns to browser preferences after a storage reset $key/$newValue', ({ key, newValue }) => {
+  vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['pt-BR']);
+  localStorage.setItem(LOCALE_STORAGE_KEY, 'en');
+  act(() => root.render(<I18nProvider><EditorState /></I18nProvider>));
+  expect(document.documentElement.lang).toBe('en');
+  const input = host.querySelector('input');
+  act(() => window.dispatchEvent(new StorageEvent('storage', { key, newValue })));
+  expect(document.documentElement.lang).toBe('pt-BR');
+  expect(host.querySelector('h1')?.textContent).toBe(translate('pt-BR', 'Preview'));
+  expect(host.querySelector('input')).toBe(input);
 });
 
 it('preserves interpolated content and formats English plurals without translating file names', () => {

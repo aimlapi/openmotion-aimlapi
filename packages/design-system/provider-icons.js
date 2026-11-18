@@ -136,9 +136,6 @@ export const providerIcons = Object.freeze({
   "doubao": {
     "file": "providers/doubao-color.svg"
   },
-  "fishaudio": { "file": "providers/fishaudio.svg" },
-  "minimax-speech-cn": { "file": "providers/minimax-color.svg" },
-  "minimax-speech": { "file": "providers/minimax-color.svg" },
   "minimax": {
     "file": "providers/minimax-color.svg"
   },

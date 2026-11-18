@@ -54,7 +54,7 @@ test('one registry supplies the settings directory and every dedicated media ada
 
 test('legacy files retain credentials, models and defaults across shared HTTP, MCP and configuration writes', () => fixture(async store => {
   const gateway = gatewayFor(store); gateway.options.detect = async () => [];
-  const root = gateway.root, custom = 'custom-existing';
+  const root = gateway.root, custom = 'custom-existing-1';
   const model = { id: 'openai:picture', provider: 'openai', modelId: 'picture', label: 'Saved picture', kind: 'image', enabled: true, source: 'custom' };
   const files = {
     'config.json': { version: 1, providers: { codex: { enabled: false }, fal: { enabled: true, verification: 'verified', keyHash: createHash('sha256').update('legacy-fal-key').digest('hex'), checkedAt: 123 }, opendesign: { baseUrl: 'https://cloud.example', enabled: true } },
@@ -80,7 +80,7 @@ test('legacy files retain credentials, models and defaults across shared HTTP, M
     assert.equal(await gateway.connections.identity(custom), 'saved-revision');
     assert.deepEqual(await Promise.all(Object.keys(files).map(file => readFile(path.join(root, file), 'utf8'))), before, 'Reading old configuration must not rewrite it');
     assert.doesNotMatch(JSON.stringify(directory), /legacy-.*-key|environment-fal-key/);
-    const publicFields = new Set(['id', 'label', 'protocol', 'baseUrl', 'kinds', 'category', 'website', 'docs', 'group', 'region', 'setupRequired', 'baseUrlEditable', 'configured', 'enabled', 'available', 'custom', 'credentialSource', 'reason']);
+    const publicFields = new Set(['id', 'label', 'protocol', 'baseUrl', 'kinds', 'category', 'website', 'docs', 'setupRequired', 'baseUrlEditable', 'configured', 'enabled', 'available', 'custom', 'credentialSource', 'reason']);
     for (const provider of [...directory.providers, ...await gateway.connections.list()]) {
       assert.deepEqual(Object.keys(provider).filter(key => !publicFields.has(key)), [], `${provider.id} must contain only public connection fields`);
     }
@@ -95,6 +95,9 @@ test('legacy files retain credentials, models and defaults across shared HTTP, M
     assert.equal(cleared.status, 200);
     assert.equal((await gateway.status()).providers.find(provider => provider.id === 'fal')!.credentialSource, 'environment');
     assert.equal(await gateway.connections.credential('fal'), 'environment-fal-key');
+    const customUpdate = await request(`/motion-api/models/providers/${custom}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label: 'Renamed endpoint' }) });
+    assert.equal(customUpdate.status, 200);
+    assert.equal((await gateway.connections.list()).find(provider => provider.id === custom)?.label, 'Renamed endpoint');
     await gateway.connections.setDefault('image', model.id);
     await gateway.connections.setDefault('text', custom + ':language');
     const restarted = new ModelGateway(store, { detect: async () => [] });

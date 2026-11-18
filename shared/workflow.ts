@@ -31,8 +31,6 @@ export const workflowRegistry = {
       atlascloud: 'skills/openmotion-media/references/providers/atlascloud.md',
       wavespeed: 'skills/openmotion-media/references/providers/wavespeed.md',
       aimlapi: 'skills/openmotion-media/references/providers/aimlapi.md',
-      fish: 'skills/openmotion-media/references/providers/fishaudio.md',
-      minimax: 'skills/openmotion-media/references/providers/minimax-speech.md',
       typography: 'skills/openmotion-production/references/typography.md',
       fonts: 'skills/openmotion-production/references/fonts.md',
       reference: 'skills/openmotion-production/references/reference-video.md',
@@ -89,8 +87,6 @@ export const workflowRegistry = {
       atlascloud: 'skills/openmotion-media/references/providers/atlascloud.md',
       wavespeed: 'skills/openmotion-media/references/providers/wavespeed.md',
       aimlapi: 'skills/openmotion-media/references/providers/aimlapi.md',
-      fish: 'skills/openmotion-media/references/providers/fishaudio.md',
-      minimax: 'skills/openmotion-media/references/providers/minimax-speech.md',
     },
   },
 } as const;

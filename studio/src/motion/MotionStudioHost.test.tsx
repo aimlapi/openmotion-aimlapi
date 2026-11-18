@@ -61,6 +61,8 @@ beforeEach(() => {
   window.happyDOM.settings.enableIframePageLoading = false;
   vi.clearAllMocks();
   localStorage.clear();
+  // These shell assertions use Chinese labels independently of the browser's preferred language.
+  localStorage.setItem('motion.studio.locale', 'zh-CN');
   state.connectionError = '';
   state.workspaceBusy = false;
   state.renderQueue.isRendering = false;

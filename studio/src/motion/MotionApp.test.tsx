@@ -111,7 +111,7 @@ it.each(['deleted project', 'empty session'])('keeps the project drawer reachabl
   document.body.append(container);
   const root = createRoot(container);
   try {
-    await act(async () => root.render(<I18nProvider><MotionApp /></I18nProvider>));
+    await act(async () => root.render(<I18nProvider initialLocale="zh-CN"><MotionApp /></I18nProvider>));
     const toggle = container.querySelector<HTMLButtonElement>(`.om-app-rail button[aria-label="${translate('zh-CN', 'Home')}"]`);
     expect(toggle).not.toBeNull();
     await act(async () => toggle!.click());
